@@ -18,3 +18,9 @@ test("salutation uses Herr/Frau with last name and omits first name", () => {
 test("unclear salutation stays neutral and still omits first name", () => {
   assert.match(claudeSource, /return `Guten Tag`/);
 });
+
+test("prompt asks for a sympathetic and less salesy tone", () => {
+  assert.match(claudeSource, /weniger werblich/i);
+  assert.match(claudeSource, /sympathisch/i);
+  assert.match(claudeSource, /kein Sales-Druck/i);
+});
