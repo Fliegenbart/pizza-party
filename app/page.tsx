@@ -630,11 +630,11 @@ function LeadRow({
   const num = String(index).padStart(3, "0");
 
   const salutation =
-    lead.gender === "f"
+    lead.gender === "f" && lead.lastName.trim()
       ? `Sehr geehrte Frau ${lead.lastName}`
-      : lead.gender === "m"
+      : lead.gender === "m" && lead.lastName.trim()
       ? `Sehr geehrter Herr ${lead.lastName}`
-      : `Hallo ${lead.firstName} ${lead.lastName}`.trim();
+      : "Guten Tag";
 
   const accentClass = isEnriching
     ? "bg-ochre anim-soft-pulse"

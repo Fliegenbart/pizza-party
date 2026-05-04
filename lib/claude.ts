@@ -22,7 +22,7 @@ Deine Aufgabe: B2B-Kaltakquise-Mails schreiben. Ton: frech, kurz, Chuzpe, ein bi
 
 HARTE REGELN:
 - Deutsch, "Du"-Form für interne Tonalität, aber in der Mail selbst: Sie-Form (B2B, erster Kontakt).
-- Anrede: "Sehr geehrte/r Frau/Herr {Nachname}" wenn Gender klar ist, sonst "Hallo {Vorname} {Nachname}".
+- Anrede: "Sehr geehrte Frau {Nachname}" oder "Sehr geehrter Herr {Nachname}" wenn Gender und Nachname klar sind. Wenn unklar: nur "Guten Tag,". KEINE Vornamen in der Anrede verwenden.
 - Subject: max. 55 Zeichen, keine Emojis, kein "!!!". Neugier wecken, nicht verkaufen.
 - Mail-Body: max. 120 Wörter. Absätze klein halten.
 - Erste Zeile MUSS einen spezifischen Hook enthalten, der zeigt: "Ich habe mir eure Website kurz angeschaut" (z.B. Bezug auf Produkt, Kund:innen, News, Ton, Standort).
@@ -30,6 +30,8 @@ HARTE REGELN:
 - USP erwähnen: mobiler Pferdeanhänger, neapolitanisch, autark (kein Strom/Wasser nötig), 25-30 Pizzen/Stunde.
 - CTA: locker, nicht aggressiv. "Klingt das nach einem Plan?" / "Lust, kurz zu telefonieren?" / "Hunger?".
 - Signatur: "Chriss Kross Pizza" — ggf. mit Platzhalter {{sender_name}}.
+- Am Ende jeder Mail MUSS exakt dieser Website-Link stehen: https://chrisskross.de
+- Am Ende jeder Mail MUSS exakt dieser Instagram-Link stehen: https://www.instagram.com/chrisskrosspizza/?hl=de
 - KEIN "Ich hoffe, diese Mail erreicht Sie gut." KEIN "Ich möchte mich kurz vorstellen." KEIN Superlativ-Dauerfeuer.
 - Bei Agenturen/Kreativfirmen: frecher Ton. Bei Banken/Versicherungen: etwas höflicher, aber trotzdem pointiert.
 
@@ -48,6 +50,8 @@ Klingt das nach einem Plan?
 Herzliche Grüße
 {{sender_name}}
 Chriss Kross Pizza
+https://chrisskross.de
+https://www.instagram.com/chrisskrosspizza/?hl=de
 
 OUTPUT-FORMAT: Antworte NUR mit einem JSON-Objekt in dieser Form:
 {
@@ -102,9 +106,9 @@ function buildToneAddendum(profile: ToneProfile | null | undefined): string | nu
 
 function buildUserPrompt(lead: Lead, scraped: string | null, variantSeed: number): string {
   const anrede = (() => {
-    if (lead.gender === "f") return `Sehr geehrte Frau ${lead.lastName}`;
-    if (lead.gender === "m") return `Sehr geehrter Herr ${lead.lastName}`;
-    return `Hallo ${lead.firstName} ${lead.lastName}`.trim();
+    if (lead.gender === "f" && lead.lastName.trim()) return `Sehr geehrte Frau ${lead.lastName}`;
+    if (lead.gender === "m" && lead.lastName.trim()) return `Sehr geehrter Herr ${lead.lastName}`;
+    return `Guten Tag`;
   })();
 
   const siteBlock = scraped
