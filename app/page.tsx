@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Lead } from "@/lib/types";
+import {
+  createWorkspaceSnapshot,
+  restoreWorkspaceSnapshot,
+  type WorkspaceState,
+} from "@/lib/workspacePersistence";
 
 type Stage = "idle" | "uploading" | "ready" | "enriching" | "done";
 const CONCURRENCY = 3;
@@ -21,6 +26,7 @@ const DEFAULT_TONE: ToneProfile = {
 };
 
 const TONE_KEY = "krossmail.tone.v1";
+const WORKSPACE_KEY = "krossmail.workspace.v1";
 
 type Stats = {
   total: number;
@@ -40,6 +46,29 @@ function hasCustomTone(t: ToneProfile): boolean {
   );
 }
 
+function loadSavedWorkspace(): WorkspaceState | null {
+  if (typeof window === "undefined") return null;
+  return restoreWorkspaceSnapshot(localStorage.getItem(WORKSPACE_KEY));
+}
+
+function saveWorkspace(fileName: string | null, leads: Lead[], stage: Stage) {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (leads.length === 0) {
+      localStorage.removeItem(WORKSPACE_KEY);
+      return;
+    }
+
+    localStorage.setItem(
+      WORKSPACE_KEY,
+      JSON.stringify(createWorkspaceSnapshot({ fileName, leads, stage }))
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 // ————————————————————————————————————————————————————————————————
 //  Root
 // ————————————————————————————————————————————————————————————————
@@ -51,6 +80,7 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
   const [toneOpen, setToneOpen] = useState(false);
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [tone, setTone] = useState<ToneProfile>(() => {
     if (typeof window === "undefined") return DEFAULT_TONE;
     try {
@@ -61,6 +91,24 @@ export default function Home() {
     }
   });
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const savedWorkspace = loadSavedWorkspace();
+      if (savedWorkspace) {
+        setStage(savedWorkspace.stage);
+        setLeads(savedWorkspace.leads);
+        setFileName(savedWorkspace.fileName);
+      }
+      setWorkspaceLoaded(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!workspaceLoaded) return;
+    if (stage === "uploading") return;
+    saveWorkspace(fileName, leads, stage);
+  }, [fileName, leads, stage, workspaceLoaded]);
 
   const saveTone = useCallback((next: ToneProfile) => {
     setTone(next);
