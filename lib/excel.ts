@@ -1,15 +1,20 @@
 import * as XLSX from "xlsx";
-import { Lead } from "./types";
+import type { Lead } from "./types";
 
-const FIRST_NAME_KEYS = ["vorname", "firstname", "first name", "first_name", "given name"];
-const LAST_NAME_KEYS = ["nachname", "lastname", "last name", "last_name", "name", "family name", "surname"];
-const FULL_NAME_KEYS = ["fullname", "full name", "full_name", "ansprechpartner", "contact"];
-const EMAIL_KEYS = ["email", "e-mail", "mail", "e_mail"];
-const COMPANY_KEYS = ["firma", "company", "unternehmen", "organization", "org"];
-const WEBSITE_KEYS = ["website", "url", "webseite", "homepage", "domain"];
+export type ParseExcelOptions = {
+  fileName?: string;
+  mimeType?: string;
+};
+
+const FIRST_NAME_KEYS = ["vorname", "firstname", "first name", "first_name", "given name", "first"];
+const LAST_NAME_KEYS = ["nachname", "lastname", "last name", "last_name", "name", "family name", "surname", "last"];
+const FULL_NAME_KEYS = ["fullname", "full name", "full_name", "ansprechpartner", "contact", "kontakt"];
+const EMAIL_KEYS = ["email", "e-mail", "mail", "e_mail", "email address", "e-mail address", "mail address"];
+const COMPANY_KEYS = ["firma", "company", "company name", "company_name", "unternehmen", "organization", "organisation", "org"];
+const WEBSITE_KEYS = ["website", "web site", "url", "webseite", "homepage", "domain"];
 
 function normalize(key: string): string {
-  return key.trim().toLowerCase();
+  return key.replace(/^\uFEFF/, "").trim().toLowerCase();
 }
 
 function findField(row: Record<string, unknown>, candidates: string[]): string | undefined {
@@ -46,8 +51,47 @@ function guessGender(firstName: string): "m" | "f" | "x" {
   return "x";
 }
 
-export function parseExcel(buffer: ArrayBuffer): Lead[] {
-  const wb = XLSX.read(buffer, { type: "array" });
+function shouldReadAsText(buffer: ArrayBuffer, options?: ParseExcelOptions): boolean {
+  const lowerName = options?.fileName?.toLowerCase() ?? "";
+  const lowerType = options?.mimeType?.toLowerCase() ?? "";
+  if (lowerName.endsWith(".csv") || lowerName.endsWith(".txt")) return true;
+  if (lowerType.includes("csv") || lowerType.startsWith("text/")) return true;
+
+  const bytes = new Uint8Array(buffer);
+  return (
+    bytes.length >= 2 &&
+    ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff))
+  );
+}
+
+function decodeText(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder("utf-16le").decode(bytes.subarray(2));
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder("utf-16be").decode(bytes.subarray(2));
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder("utf-8").decode(bytes.subarray(3));
+  }
+
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
+
+function readWorkbook(buffer: ArrayBuffer, options?: ParseExcelOptions): XLSX.WorkBook {
+  if (shouldReadAsText(buffer, options)) {
+    return XLSX.read(decodeText(buffer), { type: "string" });
+  }
+  return XLSX.read(buffer, { type: "array" });
+}
+
+export function parseExcel(buffer: ArrayBuffer, options?: ParseExcelOptions): Lead[] {
+  const wb = readWorkbook(buffer, options);
   const sheetName = wb.SheetNames[0];
   if (!sheetName) return [];
   const ws = wb.Sheets[sheetName];

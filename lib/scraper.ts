@@ -1,13 +1,21 @@
 import * as cheerio from "cheerio";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 
 const USER_AGENT =
   "Mozilla/5.0 (compatible; KrossmailBot/0.1; +https://chrisskross.de/)";
 
 async function fetchText(url: string, timeoutMs = 10_000): Promise<string | null> {
   try {
+    const safe = await isSafeScrapeTarget(url);
+    if (!safe) return null;
+
+    const normalized = normalizeUrl(url);
+    if (!normalized) return null;
+
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(url, {
+    const res = await fetch(normalized, {
       headers: { "User-Agent": USER_AGENT, "Accept": "text/html,*/*" },
       signal: controller.signal,
       redirect: "follow",
@@ -70,11 +78,81 @@ function candidateSubpages($: cheerio.CheerioAPI, baseUrl: URL): string[] {
 function normalizeUrl(raw: string): string | null {
   try {
     let v = raw.trim();
-    if (!/^https?:\/\//i.test(v)) v = "https://" + v;
+    if (!/^[a-z][a-z\d+.-]*:\/\//i.test(v)) v = "https://" + v;
     const u = new URL(v);
     return u.toString();
   } catch {
     return null;
+  }
+}
+
+function hostnameLooksLocal(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+  return h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local");
+}
+
+function blocksPrivateIpv4(address: string): boolean {
+  const parts = address.split(".").map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return true;
+  }
+
+  const [a, b] = parts;
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a >= 224
+  );
+}
+
+function blocksPrivateIpv6(address: string): boolean {
+  const lower = address.toLowerCase();
+  const mappedIpv4 = lower.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mappedIpv4) return blocksPrivateIpv4(mappedIpv4[1]);
+
+  if (lower === "::" || lower === "::1") return true;
+
+  const firstPart = lower.split(":")[0];
+  const first = Number.parseInt(firstPart || "0", 16);
+  if (!Number.isFinite(first)) return true;
+
+  return (
+    (first & 0xfe00) === 0xfc00 ||
+    (first & 0xffc0) === 0xfe80 ||
+    (first & 0xff00) === 0xff00
+  );
+}
+
+function blocksPrivateIp(address: string): boolean {
+  const version = isIP(address);
+  if (version === 4) return blocksPrivateIpv4(address);
+  if (version === 6) return blocksPrivateIpv6(address);
+  return true;
+}
+
+export async function isSafeScrapeTarget(raw: string): Promise<boolean> {
+  const normalized = normalizeUrl(raw);
+  if (!normalized) return false;
+
+  const url = new URL(normalized);
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  if (url.username || url.password) return false;
+
+  const hostname = url.hostname.replace(/^\[/, "").replace(/\]$/, "");
+  if (hostnameLooksLocal(hostname)) return false;
+
+  if (isIP(hostname)) return !blocksPrivateIp(hostname);
+
+  try {
+    const records = await lookup(hostname, { all: true, verbatim: true });
+    return records.length > 0 && records.every((record) => !blocksPrivateIp(record.address));
+  } catch {
+    return false;
   }
 }
 

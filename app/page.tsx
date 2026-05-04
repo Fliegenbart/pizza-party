@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { Lead } from "@/lib/types";
 
 type Stage = "idle" | "uploading" | "ready" | "enriching" | "done";
@@ -51,17 +51,16 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
   const [toneOpen, setToneOpen] = useState(false);
-  const [tone, setTone] = useState<ToneProfile>(DEFAULT_TONE);
-  const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
+  const [tone, setTone] = useState<ToneProfile>(() => {
+    if (typeof window === "undefined") return DEFAULT_TONE;
     try {
       const raw = localStorage.getItem(TONE_KEY);
-      if (raw) setTone({ ...DEFAULT_TONE, ...JSON.parse(raw) });
+      return raw ? { ...DEFAULT_TONE, ...JSON.parse(raw) } : DEFAULT_TONE;
     } catch {
-      /* ignore */
+      return DEFAULT_TONE;
     }
-  }, []);
+  });
+  const abortRef = useRef<AbortController | null>(null);
 
   const saveTone = useCallback((next: ToneProfile) => {
     setTone(next);
@@ -890,7 +889,6 @@ function TonePanelModal({
   onReset: () => void;
 }) {
   const [draft, setDraft] = useState<ToneProfile>(tone);
-  useEffect(() => setDraft(tone), [tone]);
 
   const updateExample = (i: number, value: string) => {
     const next = [...draft.examples] as [string, string, string];

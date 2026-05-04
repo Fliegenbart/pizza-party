@@ -23,11 +23,13 @@ Dann [http://localhost:3000](http://localhost:3000) öffnen.
 
 Prüfen, ob der Key geladen ist: `curl localhost:3000/api/health` sollte `"hasApiKey": true` liefern.
 
+Optional kannst du `ENRICH_RATE_LIMIT_PER_HOUR` setzen. Standard sind 120 Generierungen pro IP und Stunde.
+
 ## Beispieldatei
 
 `sample-leads.xlsx` im Repo enthält 5 Test-Leads (Otto, Statista, hei. Hamburg, Jung von Matt, XING). Reinladen, "Mails generieren" klicken — in ~30-60 Sekunden sind alle fünf Mails da.
 
-## Excel-Format
+## Excel-/CSV-Format
 
 Spaltennamen werden heuristisch erkannt (case-insensitive):
 

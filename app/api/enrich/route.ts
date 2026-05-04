@@ -2,12 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import { Lead } from "@/lib/types";
 import { guessWebsiteFromEmail, scrapeCompany } from "@/lib/scraper";
 import { generateMail, ToneProfile } from "@/lib/claude";
+import { enrichRateLimiter, getClientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const DEFAULT_RATE_LIMIT_PER_HOUR = 120;
+
+function readRateLimit(): number {
+  const raw = Number(process.env.ENRICH_RATE_LIMIT_PER_HOUR);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_RATE_LIMIT_PER_HOUR;
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const clientIp = getClientIp(req.headers);
+    const rateLimit = enrichRateLimiter.check(
+      `enrich:${clientIp}`,
+      readRateLimit(),
+      RATE_LIMIT_WINDOW_MS
+    );
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Zu viele Generierungen. Bitte versuche es später erneut." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        }
+      );
+    }
+
     const body = (await req.json()) as {
       lead: Lead;
       variantSeed?: number;
