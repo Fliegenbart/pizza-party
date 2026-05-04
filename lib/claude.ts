@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { EnrichmentResult, Lead } from "./types";
+import type { EnrichmentResult, Lead } from "./types";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-5";
+const MAIL_TOOL_NAME = "write_krossmail";
 
 function getClient(): Anthropic {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -53,15 +54,35 @@ Chriss Kross Pizza
 https://chrisskross.de
 https://www.instagram.com/chrisskrosspizza/?hl=de
 
-OUTPUT-FORMAT: Antworte NUR mit einem JSON-Objekt in dieser Form:
-{
-  "companySummary": "1-2 Sätze: Was macht die Firma?",
-  "hook": "Der konkrete Aufhänger, den du in der Mail benutzt hast (1 Satz).",
-  "subject": "...",
-  "mailBody": "..."
-}
+OUTPUT-FORMAT: Nutze ausschließlich das Tool "${MAIL_TOOL_NAME}" und befülle die Felder vollständig. Kein freier Text, kein Markdown.`;
 
-Kein Markdown, kein Code-Fence, nur das JSON.`;
+const MAIL_TOOL = {
+  name: MAIL_TOOL_NAME,
+  description: "Finale Krossmail-Ausgabe als strukturierte Daten.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      companySummary: {
+        type: "string",
+        description: "1-2 Sätze: Was macht die Firma?",
+      },
+      hook: {
+        type: "string",
+        description: "Der konkrete Aufhänger, der in der Mail benutzt wurde.",
+      },
+      subject: {
+        type: "string",
+        description: "Betreffzeile, maximal 55 Zeichen.",
+      },
+      mailBody: {
+        type: "string",
+        description:
+          "Kompletter Mail-Body inklusive Anrede, Signatur, Website-Link und Instagram-Link.",
+      },
+    },
+    required: ["companySummary", "hook", "subject", "mailBody"],
+  },
+};
 
 function describeFrechness(v: number): string {
   if (v < 25) return "sehr formal, sachlich, zurückhaltend — keine Puns, keine Chuzpe";
@@ -127,15 +148,42 @@ ${siteBlock}
 Schreib jetzt Subject + Mailbody. Nur JSON zurück.`;
 }
 
-function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenceMatch ? fenceMatch[1] : trimmed;
-  const firstBrace = candidate.indexOf("{");
-  const lastBrace = candidate.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1) throw new Error("No JSON object found");
-  const slice = candidate.slice(firstBrace, lastBrace + 1);
-  return JSON.parse(slice);
+type MailToolInput = {
+  companySummary?: unknown;
+  hook?: unknown;
+  subject?: unknown;
+  mailBody?: unknown;
+};
+
+type ClaudeContentBlock = {
+  type: string;
+  name?: string;
+  input?: unknown;
+};
+
+function requireString(input: MailToolInput, key: keyof MailToolInput): string {
+  const value = input[key];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Claude response missing ${key}`);
+  }
+  return value.trim();
+}
+
+export function parseMailResponseContent(content: ClaudeContentBlock[]): Omit<EnrichmentResult, "tokensUsed"> {
+  const toolBlock = content.find(
+    (block) => block.type === "tool_use" && block.name === MAIL_TOOL_NAME
+  );
+  if (!toolBlock || typeof toolBlock.input !== "object" || toolBlock.input === null) {
+    throw new Error(`No ${MAIL_TOOL_NAME} tool response from Claude`);
+  }
+
+  const input = toolBlock.input as MailToolInput;
+  return {
+    subject: requireString(input, "subject"),
+    mailBody: requireString(input, "mailBody"),
+    companySummary: requireString(input, "companySummary"),
+    hook: requireString(input, "hook"),
+  };
 }
 
 export async function generateMail(
@@ -173,27 +221,19 @@ export async function generateMail(
     max_tokens: 1024,
     system: systemBlocks,
     messages: [{ role: "user", content: userPrompt }],
+    tools: [MAIL_TOOL],
+    tool_choice: { type: "tool", name: MAIL_TOOL_NAME },
   });
 
-  const firstBlock = response.content.find((b) => b.type === "text");
-  if (!firstBlock || firstBlock.type !== "text") throw new Error("No text response from Claude");
-
-  const parsed = extractJson(firstBlock.text) as {
-    companySummary?: string;
-    hook?: string;
-    subject?: string;
-    mailBody?: string;
-  };
-
-  if (!parsed.subject || !parsed.mailBody) throw new Error("Claude response missing subject or mailBody");
+  const parsed = parseMailResponseContent(response.content);
 
   const tokensUsed = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
 
   return {
-    subject: parsed.subject.trim(),
-    mailBody: parsed.mailBody.trim(),
-    companySummary: (parsed.companySummary ?? "").trim(),
-    hook: (parsed.hook ?? "").trim(),
+    subject: parsed.subject,
+    mailBody: parsed.mailBody,
+    companySummary: parsed.companySummary,
+    hook: parsed.hook,
     tokensUsed,
   };
 }
