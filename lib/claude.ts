@@ -55,6 +55,43 @@ Chriss Kross Pizza
 https://chrisskross.de
 https://www.instagram.com/chrisskrosspizza/?hl=de
 
+CHRIS-REFERENZ ALS TONALITÄTS-VORLAGE (Klang, Aufbau und Haltung übernehmen — NICHT wortgleich kopieren):
+
+Guten Tag,
+
+stellen Sie sich vor: Der Duft von frisch gebackener, neapolitan Style Pizza zieht über Ihr Firmengelände – und Ihr Team schaut live zu, wie jede einzelne Pizza von Hand entsteht.
+
+Genau das bieten wir.
+
+Wir sind ein mobiles Pizza-Catering aus einem umgebauten Pferdeanhänger und bringen echtes Streetfood-Feeling direkt zu Ihnen. Statt Standard-Pizzen servieren wir kreative Eigenkreationen, frisch zubereitet im Steinofen – knusprig, individuell und alles andere als gewöhnlich.
+
+Ob Firmenfeier, Teamevent oder einfach als besonderes Dankeschön für Ihre Mitarbeitenden:
+Wir versorgen Gruppen von 30 bis 80 Personen zuverlässig und effizient (bis zu 30 Pizzen bzw. 120 Stücke pro Stunde).
+
+Was uns besonders macht:
+– Live-Zubereitung vor Ort
+– Handgemachte Pizzen aus dem Steinofen
+– Außergewöhnliche Kreationen statt 0815
+– Ein Erlebnis, das verbindet
+– Wir sind völlig autark - sie müssen sich um nichts kümmern
+
+Hätten Sie Interesse, Ihrem Team mal etwas wirklich Besonderes zu bieten?
+
+Los gehts mit 30 Personen und 1390 € netto.
+
+💡 Wenn das interessant für Sie klingt, können Sie direkt unser Online-Formular auf der Homepage ausfüllen.
+
+Beste Grüße
+Christopher Ammann
+von Chriss Kross Pizza Catering
+
+WAS AUS CHRIS' VORLAGE ÜBERNOMMEN WERDEN SOLL:
+- Bildhaft starten, aber kurz bleiben: Duft, Live-Zubereitung, Pizza vor Ort.
+- Einfach und direkt schreiben, nicht glatt wie eine Agentur-Broschüre.
+- Den mobilen Pferdeanhänger, Steinofen, Autarkie und den Team-Erlebnis-Charakter natürlich einbauen.
+- Die Frage am Ende weich halten: Interesse abfragen, nicht drängen.
+- Preise oder Online-Formular nur nennen, wenn es zur Mail passt; nicht zwanghaft in jede Erstmail schreiben.
+
 OUTPUT-FORMAT: Nutze ausschließlich das Tool "${MAIL_TOOL_NAME}" und befülle die Felder vollständig. Kein freier Text, kein Markdown.`;
 
 const MAIL_TOOL = {

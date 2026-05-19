@@ -24,3 +24,9 @@ test("prompt asks for a sympathetic and less salesy tone", () => {
   assert.match(claudeSource, /sympathisch/i);
   assert.match(claudeSource, /kein Sales-Druck/i);
 });
+
+test("prompt includes Chris reference mail as a tone template", () => {
+  assert.match(claudeSource, /CHRIS-REFERENZ ALS TONALITÄTS-VORLAGE/);
+  assert.match(claudeSource, /mobiles Pizza-Catering aus einem umgebauten Pferdeanhänger/);
+  assert.match(claudeSource, /nicht zwanghaft in jede Erstmail schreiben/i);
+});
